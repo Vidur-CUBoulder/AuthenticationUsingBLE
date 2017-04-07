@@ -37,7 +37,7 @@
 *
 * The functions that use this library are:
 * 1.
-
+******************************************************************************/
 
 /*****************************************************
             * Include Statements *
@@ -76,9 +76,12 @@ void keypad_setup(void)
 
 
     /*Set falling edge interrupts for all keys*/
+
     GPIO_IntConfig(KEY1Port, KEY1Pin, false, true, true);
     GPIO_IntConfig(KEY2Port, KEY2Pin, false, true, true);
+#if 0
     GPIO_IntConfig(KEY3Port, KEY3Pin, false, true, true);
+#endif
     GPIO_IntConfig(KEY4Port, KEY4Pin, false, true, true);
     GPIO_IntConfig(KEY5Port, KEY5Pin, false, true, true);
     GPIO_IntConfig(KEY6Port, KEY6Pin, false, true, true);
@@ -108,14 +111,14 @@ void GPIO_ODD_IRQHandler(void)
 
     if(intFlags & (1<<1))
     {
-        if(GPIO_PortInGet(gpioPortD) & (1<<1))          //Pin D1
-            key_pressed = key1;                         //Key 1 is pressed
-        else if(GPIO_PortInGet(gpioPortF) & (1<<1))     //Pin F1
+        if((GPIO_PortInGet(gpioPortF) & (1<<1)) == 0)     //Pin F1
             key_pressed = keyOn;                        //Key On is pressed
+        if((GPIO_PortInGet(gpioPortD) & (1<<1)) == 0)          //Pin D1
+            key_pressed = key1;                         //Key 1 is pressed
     }
     else if(intFlags & (1<<3))
     {
-        if(GPIO_PortInGet(gpioPortC) & (1<<3))          //Pin C3
+        if((GPIO_PortInGet(gpioPortC) & (1<<3)) == 0)          //Pin C3
             key_pressed = key0;                         //Key 0 is pressed
     }
     else if(intFlags & (1<<5))
@@ -125,14 +128,19 @@ void GPIO_ODD_IRQHandler(void)
     }
     else if(intFlags & (1<<7))
     {
-        if(GPIO_PortInGet(gpioPortD) & (1<<7))          //Pin D7
+        if((GPIO_PortInGet(gpioPortD) & (1<<7)) == 0)          //Pin D7
             key_pressed = key6;                         //key 6 is pressed
     }
     else if(intFlags & (1<<11))
     {
-        if(GPIO_PortInGet(gpioPortB) & (1<<11))         //Pin B11
+        if((GPIO_PortInGet(gpioPortB) & (1<<11)) == 0)         //Pin B11
             key_pressed = key9;                         //key 9 is pressed
     }
+    if(oddstate == true)
+        oddstate = false;
+    else
+        oddstate = true;
+    SegmentLCD_EnergyMode(0, oddstate);
     GPIO_IntClear(intFlags);
     NVIC_ClearPendingIRQ(GPIO_ODD_IRQn);
     __enable_irq();
@@ -148,31 +156,37 @@ void GPIO_EVEN_IRQHandler(void)
 
     if(intFlags & (1<<0))
     {
-        if(GPIO_PortInGet(gpioPortD) & (1<<0))          //Pin D0
-            key_pressed = key7;                         //Key 7 is pressed
-        else if(GPIO_PortInGet(gpioPortC) & (1<<0))     //Pin C0
+        if((GPIO_PortInGet(gpioPortC) & (1<<0)) == 0)     //Pin C0
             key_pressed = key8;                         //Key 8 is pressed
+        else if((GPIO_PortInGet(gpioPortD) & (1<<0)) == 0)          //Pin D0
+            key_pressed = key7;                         //Key 7 is pressed
     }
     else if(intFlags & (1<<2))
     {
-        if(GPIO_PortInGet(gpioPortD) & (1<<2))          //Pin D2
+        if((GPIO_PortInGet(gpioPortD) & (1<<2)) == 0)          //Pin D2
             key_pressed = key4;                         //Key 4 is pressed
     }
     else if(intFlags & (1<<4))
     {
-        if(GPIO_PortInGet(gpioPortC) & (1<<4))          //Pin C4
+        if((GPIO_PortInGet(gpioPortC) & (1<<4)) == 0)          //Pin C4
             key_pressed = key2;                         //Key 2 is pressed
     }
     else if(intFlags & (1<<6))
     {
-        if(GPIO_PortInGet(gpioPortC) & (1<<6))          //Pin C6
+        if((GPIO_PortInGet(gpioPortC) & (1<<6)) == 0)          //Pin C6
             key_pressed = key3;                         //Key 3 is pressed
     }
     else if(intFlags & (1<<12))
     {
-        if(GPIO_PortInGet(gpioPortB) & (1<<12))         //Pin B12
+        if((GPIO_PortInGet(gpioPortB) & (1<<12)) == 0)         //Pin B12
             key_pressed = keyEnter;                         //Key Enter is pressed
     }
+
+    if(evenstate == true)
+        evenstate = false;
+    else
+        evenstate = true;
+    SegmentLCD_Symbol(LCD_SYMBOL_EFM32, evenstate);
     GPIO_IntClear(intFlags);
     NVIC_ClearPendingIRQ(GPIO_EVEN_IRQn);
     __enable_irq();
