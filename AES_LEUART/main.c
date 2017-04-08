@@ -10,10 +10,10 @@
 #define delay(X) for(int i=0; i<X; i++)
 
 #define ENABLE_AES_INTERRUPT  {\
-							   AES->IFC = AES_IFC_DONE;\
-  	  	  	  	  	  	  	   AES->IEN = AES_IEN_DONE;\
-  	  	  	  	  	  	  	   NVIC_EnableIRQ(AES_IRQn);\
-							  }
+                                AES->IFC = AES_IFC_DONE;\
+                                AES->IEN = AES_IEN_DONE;\
+                                NVIC_EnableIRQ(AES_IRQn);\
+                              }
 
 
 /************************ END OF DEFINES *********************/
@@ -87,7 +87,6 @@ void GPIO_ODD_IRQHandler(void)
 
 void Config_GPIO(void)
 {
-
   /* Configure PB9 as input */
   GPIO_PinModeSet(gpioPortB, 9, gpioModeInput, 0);
 
@@ -154,6 +153,7 @@ int main(void)
   /* Do the GPIO config here */
   Config_GPIO();
 
+  /* Do the initial config. for the AES engine */
   Config_AES();
 
   /* Select the sleep mode that you want to enter */
