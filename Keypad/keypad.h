@@ -31,12 +31,8 @@
 * special damages, or any other relief, or for any claim by any third party,
 * arising from your use of this Software.
 ******************************************************************************
-******************************************************************************
 * emlib library of Silicon Labs for Leopard Gecko development board
 * used in compliance with the licenses and copyrights.
-*
-* The functions that use this library are:
-* 1.
 ******************************************************************************/
 
 #ifndef KEYPAD_H
@@ -58,11 +54,11 @@
 /*****************************************************
             * Define Statements *
  *****************************************************/
-#define KEY1Port    gpioPortB           //Keypad 1 pin 4, exp 6
+#define KEY1Port    gpioPortB           //Keypad 1 pin 4
 #define KEY1Pin     9
-#define KEY2Port    gpioPortC           //Keypad 2 pin 4, exp 7
+#define KEY2Port    gpioPortC           //Keypad 2 pin 4
 #define KEY2Pin     4
-#define KEY3Port    gpioPortC           //Keypad 3 pin 1, exp 15
+#define KEY3Port    gpioPortC           //Keypad 3 pin 1
 #define KEY3Pin     6
 #define KEY4Port    gpioPortD           //Keypad 1 pin 3
 #define KEY4Pin     2
@@ -107,20 +103,18 @@ typedef enum keypad_t
 
 
 unsigned int key_pressed;                       //Variable to store the key pressed
-bool oddstate;
-bool evenstate;
+bool oddstate;                                  //To debug odd irq handler
+bool evenstate;                                 //To debug even irq handler
 
 
 /************************************************************************
-* Description
+* Setup and initialize all buttons of the keypad
 *
 * Input variables: None
 *
 * Global variables: None
 *
 * Returned variables: None
-*
-* IP
 **************************************************************************/
 void keypad_setup(void);
 
