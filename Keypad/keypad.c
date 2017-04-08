@@ -31,12 +31,8 @@
 * special damages, or any other relief, or for any claim by any third party,
 * arising from your use of this Software.
 ******************************************************************************
-******************************************************************************
 * emlib library of Silicon Labs for Leopard Gecko development board
 * used in compliance with the licenses and copyrights.
-*
-* The functions that use this library are:
-* 1.
 ******************************************************************************/
 
 /*****************************************************
@@ -53,8 +49,6 @@
 * Global variables: None
 *
 * Returned variables: None
-*
-* IP
 **************************************************************************/
 void keypad_setup(void)
 {
@@ -75,13 +69,19 @@ void keypad_setup(void)
     GPIO_PinModeSet(KEYEnterPort, KEYEnterPin, gpioModeInputPull, 1);
 
 
+    /*EM4 setup*/
+    GPIO->CTRL = GPIO_CTRL_EM4RET;                      //Enable EM4 retention
+    GPIO->CMD = GPIO_CMD_EM4WUCLR;                      //Clear pending wake up requests
+    GPIO->EM4WUEN = GPIO_EM4WUEN_EM4WUEN_F1 | GPIO_EM4WUEN_EM4WUEN_F1;      //Enable EM4 wake-up
+    GPIO->EM4WUPOL = GPIO_EM4WUPOL_EM4WUPOL_F2;         //Set wake-up polarity as 1 for F2, 0 for others
+
+
+
     /*Set falling edge interrupts for all keys*/
 
     GPIO_IntConfig(KEY1Port, KEY1Pin, false, true, true);
     GPIO_IntConfig(KEY2Port, KEY2Pin, false, true, true);
-#if 0
     GPIO_IntConfig(KEY3Port, KEY3Pin, false, true, true);
-#endif
     GPIO_IntConfig(KEY4Port, KEY4Pin, false, true, true);
     GPIO_IntConfig(KEY5Port, KEY5Pin, false, true, true);
     GPIO_IntConfig(KEY6Port, KEY6Pin, false, true, true);
@@ -99,7 +99,6 @@ void keypad_setup(void)
     /*Clear and enable odd gpio interrupts*/
     NVIC_ClearPendingIRQ(GPIO_ODD_IRQn);
     NVIC_EnableIRQ(GPIO_ODD_IRQn);
-
 }
 
 
@@ -110,32 +109,18 @@ void GPIO_ODD_IRQHandler(void)
     intFlags = GPIO_IntGet();
 
     if(intFlags & (1<<1))
-    {
-        if((GPIO_PortInGet(gpioPortF) & (1<<1)) == 0)     //Pin F1
-            key_pressed = keyOn;                        //Key On is pressed
-        if((GPIO_PortInGet(gpioPortD) & (1<<1)) == 0)          //Pin D1
-            key_pressed = key1;                         //Key 1 is pressed
-    }
+        key_pressed = keyOn;                        //Key On is pressed
     else if(intFlags & (1<<3))
-    {
-        if((GPIO_PortInGet(gpioPortC) & (1<<3)) == 0)          //Pin C3
-            key_pressed = key0;                         //Key 0 is pressed
-    }
+        key_pressed = key0;                         //Key 0 is pressed
     else if(intFlags & (1<<5))
-    {
-        if((GPIO_PortInGet(gpioPortC) & (1<<5)) == 0)   //Pin C5
-            key_pressed = key5;                         //key 5 is pressed
-    }
+        key_pressed = key5;                         //key 5 is pressed
     else if(intFlags & (1<<7))
-    {
-        if((GPIO_PortInGet(gpioPortD) & (1<<7)) == 0)          //Pin D7
-            key_pressed = key6;                         //key 6 is pressed
-    }
+        key_pressed = key6;                         //key 6 is pressed
+    else if(intFlags & (1<<9))
+        key_pressed = key1;                         //Key 1 is pressed
     else if(intFlags & (1<<11))
-    {
-        if((GPIO_PortInGet(gpioPortB) & (1<<11)) == 0)         //Pin B11
-            key_pressed = key9;                         //key 9 is pressed
-    }
+        key_pressed = key9;                         //key 9 is pressed
+
     if(oddstate == true)
         oddstate = false;
     else
@@ -155,32 +140,17 @@ void GPIO_EVEN_IRQHandler(void)
     intFlags = GPIO_IntGet();
 
     if(intFlags & (1<<0))
-    {
-        if((GPIO_PortInGet(gpioPortC) & (1<<0)) == 0)     //Pin C0
-            key_pressed = key8;                         //Key 8 is pressed
-        else if((GPIO_PortInGet(gpioPortD) & (1<<0)) == 0)          //Pin D0
-            key_pressed = key7;                         //Key 7 is pressed
-    }
+        key_pressed = key8;                         //Key 8 is pressed
     else if(intFlags & (1<<2))
-    {
-        if((GPIO_PortInGet(gpioPortD) & (1<<2)) == 0)          //Pin D2
-            key_pressed = key4;                         //Key 4 is pressed
-    }
+        key_pressed = key4;                         //Key 4 is pressed
     else if(intFlags & (1<<4))
-    {
-        if((GPIO_PortInGet(gpioPortC) & (1<<4)) == 0)          //Pin C4
-            key_pressed = key2;                         //Key 2 is pressed
-    }
+        key_pressed = key2;                         //Key 2 is pressed
     else if(intFlags & (1<<6))
-    {
-        if((GPIO_PortInGet(gpioPortC) & (1<<6)) == 0)          //Pin C6
-            key_pressed = key3;                         //Key 3 is pressed
-    }
+        key_pressed = key3;                         //Key 3 is pressed
+    else if(intFlags & (1<<10))
+        key_pressed = key7;                         //Key 7 is pressed
     else if(intFlags & (1<<12))
-    {
-        if((GPIO_PortInGet(gpioPortB) & (1<<12)) == 0)         //Pin B12
-            key_pressed = keyEnter;                         //Key Enter is pressed
-    }
+        key_pressed = keyEnter;                     //Key Enter is pressed
 
     if(evenstate == true)
         evenstate = false;

@@ -52,13 +52,14 @@
 #include "em_cmu.h"
 #include "em_lcd.h"
 #include "segmentlcd.h"
+#include "em_emu.h"
 
 
 /*****************************************************
             * Define Statements *
  *****************************************************/
-#define KEY1Port    gpioPortD           //Keypad 1 pin 4, exp 6
-#define KEY1Pin     1
+#define KEY1Port    gpioPortB           //Keypad 1 pin 4, exp 6
+#define KEY1Pin     9
 #define KEY2Port    gpioPortC           //Keypad 2 pin 4, exp 7
 #define KEY2Pin     4
 #define KEY3Port    gpioPortC           //Keypad 3 pin 1, exp 15
@@ -69,8 +70,8 @@
 #define KEY5Pin     5
 #define KEY6Port    gpioPortD           //Keypad 3 pin 2
 #define KEY6Pin     7
-#define KEY7Port    gpioPortD           //Keypad 1 pin 2
-#define KEY7Pin     0
+#define KEY7Port    gpioPortB           //Keypad 1 pin 2
+#define KEY7Pin     10
 #define KEY8Port    gpioPortC           //Keypad 2 pin 2
 #define KEY8Pin     0
 #define KEY9Port    gpioPortB           //Keypad 3 pin 3
@@ -78,7 +79,7 @@
 #define KEY0Port    gpioPortC           //Keypad 2 pin 1
 #define KEY0Pin     3
 #define KEYOnPort   gpioPortF           //Keypad 1 pin 1
-#define KEYOnPin    2
+#define KEYOnPin    1
 #define KEYEnterPort    gpioPortB       //Keypad 3 pin 4
 #define KEYEnterPin     12
 
@@ -106,7 +107,8 @@ typedef enum keypad_t
 
 
 unsigned int key_pressed;                       //Variable to store the key pressed
-
+bool oddstate;
+bool evenstate;
 
 
 /************************************************************************
@@ -124,3 +126,4 @@ void keypad_setup(void);
 
 
 #endif /* KEYPAD_H */
+
