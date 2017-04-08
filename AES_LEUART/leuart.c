@@ -14,15 +14,15 @@
 #define LEUART_SLEEP_MODE sleepEM2
 
 #define AES_DATA_SIZE 64
-extern c_buf aes_buffer;
 
 #define delay(X) for(int i=0; i<X; i++)
 
 uint8_t ret_data;
 uint8_t rx_count = 0;
+uint8_t rx_test_buffer[AES_DATA_SIZE];
 
 extern uint8_t aes_data_counter;
-uint8_t rx_test_buffer[AES_DATA_SIZE];
+extern c_buf aes_buffer;
 
 /* Function: void Setup_LEUART(void)
  * Parameters:
