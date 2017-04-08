@@ -18,31 +18,11 @@ extern c_buf aes_buffer;
 
 #define delay(X) for(int i=0; i<X; i++)
 
-//extern uint8_t *data_buffer[DATA_BUFFER_SIZE];
-//extern uint8_t transfer_bytes = 0;
-//extern uint8_t counter;
-
 uint8_t ret_data;
 uint8_t rx_count = 0;
 
 extern uint8_t aes_data_counter;
 uint8_t rx_test_buffer[AES_DATA_SIZE];
-
-/* Select TIMER0 parameters */
-TIMER_Init_TypeDef timerInit =
-{
-  .enable     = true,
-  .debugRun   = true,
-  .prescale   = timerPrescale1024,
-  .clkSel     = timerClkSelHFPerClk,
-  .fallAction = timerInputActionNone,
-  .riseAction = timerInputActionNone,
-  .mode       = timerModeUp,
-  .dmaClrAct  = false,
-  .quadModeX4 = false,
-  .oneShot    = false,
-  .sync       = false,
-};
 
 /* Function: void Setup_LEUART(void)
  * Parameters:
@@ -84,7 +64,10 @@ void Setup_LEUART(void)
   
   /* Clear the interrupt flags */
   LEUART0->IFC = 0xFF;
- 
+
+  /* Set RXDMAWU to wake up the DMA controller in EM2 */
+  LEUART_RxDmaInEM2Enable(LEUART0, true);
+
   /* Enable the interrupt flag for the LEUART 
    * - Enable the interrupt on the completion of the TX.
    */
@@ -186,52 +169,3 @@ void LEUART0_IRQHandler(void)
 
   return;
 }
-
-
-
-
-
-
-#if 0
-void LEUART0_IRQHandler(void)
-{
-	INT_Disable();
-
-#ifdef USE_CIRCULAR_BUFFER
-	uint8_t ret_data = 0;
-#endif
-
-	/* Clear the TXC flag */
-	LEUART0->IFC = LEUART_IFC_TXC;
-
-  /* Transfer all the data from the data buffer to the
-   * peripheral device. In every other case, continue to 
-   * block in the EM2 case.
-   */
-	if(counter != DATA_BUFFER_SIZE){
-		/* Send the data again */
-#ifdef USE_CIRCULAR_BUFFER
-		if(remove_from_buffer(&buffer, &ret_data, sizeof(uint8_t)) != BUFFER_EMPTY) {
-			counter++;
-			LEUART0->TXDATA = ret_data;
-		}
-#else
-		LEUART0->TXDATA = *data_buffer[counter++];
-		ret_data[rx_count++] = LEUART0->RXDATA;
-
-		TIMER_IntEnable(TIMER0, TIMER_IF_OF);
-		TIMER_Init(TIMER0, &timerInit);
-
-#endif
-	} else {
-		/* unblock in EM2 sleep mode */
-		unblockSleepMode(LEUART_SLEEP_MODE);
-	}
-
-  INT_Enable();
-
-  return;
-}
-#endif
-
-
