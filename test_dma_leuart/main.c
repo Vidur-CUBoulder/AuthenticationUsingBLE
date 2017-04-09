@@ -145,7 +145,7 @@ void setupDma(void)
   /* Configure primary descriptor  */
   DMA_CfgDescr(0, true, &descrCfg);
  
-  DMA_CfgLoop(0, &loopCfg);
+  //DMA_CfgLoop(0, &loopCfg);
   
   /*Clear and enable the DMA interrupt */
   DMA_IntClear(0);
@@ -175,6 +175,17 @@ void cb_Chnl0_DMA(unsigned int channel, bool primary, void *user)
 	LEUART0->CMD = LEUART_CMD_CLEARTX;
 	LEUART0->CMD = LEUART_CMD_CLEARRX;
 
+	DMA_ActivateBasic(0,
+			    true,
+			    false,
+		        (void *)&LEUART0->TXDATA,
+			    &Tx_Buffer,
+			    (count+1));
+
+	if(count == 8) {
+		DMA->LOOP0 &= ~DMA_LOOP0_EN;
+	}
+
 	INT_Enable();
 
 }
@@ -197,6 +208,6 @@ int main(void)
   while (1)
   {
     /* On every wakeup enter EM2 again */
-    //EMU_EnterEM2(true);
+    EMU_EnterEM2(true);
   }
 }
