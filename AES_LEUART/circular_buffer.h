@@ -98,4 +98,7 @@ void Debug_Buffer(c_buf *buffer, uint8_t size);
  */
 debug_buf free_buffer(void *buffer);
 
+debug_buf DMA_override_head(c_buf *buffer, uint8_t multiplier);
+
+
 #endif /* SRC_CIRCULAR_BUFFER_H_ */

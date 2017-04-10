@@ -25,6 +25,28 @@ debug_buf Alloc_Buffer(c_buf *buffer, uint8_t size)
   return SUCCESS;
 }
 
+debug_buf DMA_override_head(c_buf *buffer, uint8_t multiplier)
+{
+	if(buffer == NULL) {
+		return NULL_RETURN;
+	}
+
+	/* Move the head pointer */
+	buffer->head = buffer->head + multiplier;
+
+	/* Check if the bounds of the buffer have been surpassed.
+	 * If yes, move the head pointer to the next element in the
+	 * memory & set the overflow flag
+	 */
+	if(buffer->head > buffer->buf_end) {
+		buffer->head = buffer->buf_start;
+		buffer->overflow = true;
+	}
+	buffer->elements = buffer->elements + multiplier;
+
+	return SUCCESS;
+}
+
 debug_buf add_to_buffer(c_buf *buffer, void *data, uint8_t multiplier)
 {
   if(buffer == NULL) {
