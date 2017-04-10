@@ -15,6 +15,8 @@
                                 NVIC_EnableIRQ(AES_IRQn);\
                               }
 
+#define USE_LEUART_DMA
+
 
 /************************ END OF DEFINES *********************/
 /********************** Global Variables ******************/
@@ -27,6 +29,7 @@ uint8_t ret_data;
 /* Store the AES data in a circular buffer */
 c_buf aes_buffer;
 
+/***********************************************************/
 
 /* Function: Central_Clock_Setup(CMU_Osc_TypeDef osc_clk_type)
  * Parameters:
@@ -40,6 +43,9 @@ void Central_Clock_Setup(CMU_Osc_TypeDef osc_clk_type)
 {
 	/* Setup the oscillator */
 	CMU_OscillatorEnable(osc_clk_type, true, true);
+
+	/* Enable peripheral clocks */
+	CMU_ClockEnable(cmuClock_HFPER, true);
 
 	/* Select the low freq. clock */
 	CMU_ClockSelectSet(cmuClock_LFA, osc_clk_type);
@@ -76,9 +82,21 @@ void GPIO_ODD_IRQHandler(void)
 	/* Trigger the AES interrupt */
 	AesCBC128DmaEncrypt(exampleKey,\
 			exampleData,\
-			dataBuffer,\
+			aes_buffer.buf_start,\
 			SIZEOF_DMA_BLOCK,\
 			initVector);
+
+	/* This is a very strategically placed delay.
+	 * Critical for the AES to give a complete output!
+	 * Don't dare touch it!!
+	 */
+	delay(100);
+
+	/* Move the head pointer to the correct location as a result
+	 * of the DMA transfers. This is an override and not an
+	 * actual circular buffer addition.
+	 */
+	DMA_override_head(&aes_buffer, AES_DATA_SIZE);
 
 	INT_Enable();
 
@@ -108,8 +126,18 @@ void AES_IRQHandler(void)
 {
 	INT_Disable();
 
+	/* Reset the DMA controller completely */
+	DMA_Reset();
+
+	/* Do the DMA config here! */
+#ifdef USE_LEUART_DMA
+	/* Do the DMA LEUART configuration */
+	Setup_LEUART_DMA();
+#endif
+
 	/* Add the encrypted data to the aes_buffer */
-	add_to_buffer(&aes_buffer, &dataBuffer, AES_DATA_SIZE);
+	//add_to_buffer(&aes_buffer, &dataBuffer, AES_DATA_SIZE);
+	remove_from_buffer(&aes_buffer, &pop_data, AES_DATA_SIZE);
 
 	/* Clear the interrupt flag */
 	AES->IFC = AES_IFC_DONE;
@@ -117,16 +145,29 @@ void AES_IRQHandler(void)
 	/* Reset the aes counter */
 	aes_byte_counter = 0;
 
-	/* Do the transfer of the encrypted data via LEUART from here! */
+/* XXX: The below is what should work!! */
+  /*DMA_ActivateBasic(0,
+      true,
+      false,
+      (void *)&LEUART0->TXDATA,
+      (void *)&aes_buffer.buf_start,
+      AES_DATA_SIZE);*/
 
-	/* Remove a byte of data from the circular buffer and put it on the
-	 * LEUART bus.
-	 */
+#ifdef USE_LEUART_DMA
+ DMA_ActivateBasic(0,
+      true,
+      false,
+      (void *)&LEUART0->TXDATA,
+      (void *)&pop_data,
+	  AES_DATA_SIZE);
+#else
 	remove_from_buffer(&aes_buffer, &ret_data, sizeof(uint8_t));
-    LEUART0->TXDATA = ret_data;
+	LEUART0->TXDATA = ret_data;
+#endif
 
 	INT_Enable();
 }
+
 
 void Config_AES(void)
 {
@@ -153,7 +194,7 @@ int main(void)
   /* Do the GPIO config here */
   Config_GPIO();
 
-  /* Do the initial config. for the AES engine */
+  /* Configure the AES engine */
   Config_AES();
 
   /* Select the sleep mode that you want to enter */

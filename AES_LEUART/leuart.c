@@ -13,13 +13,16 @@
 #define SEL_SLEEP_MODE    sleepEM2
 #define LEUART_SLEEP_MODE sleepEM2
 
+#define USE_LEUART_DMA
+
 #define AES_DATA_SIZE 64
+#define DMA_CHNL0_LEUART0 0
 
 #define delay(X) for(int i=0; i<X; i++)
 
 uint8_t ret_data;
-uint8_t rx_count = 0;
 uint8_t rx_test_buffer[AES_DATA_SIZE];
+uint8_t count = 0;
 
 extern uint8_t aes_data_counter;
 extern c_buf aes_buffer;
@@ -37,8 +40,8 @@ void Setup_LEUART(void)
 
   /* To avoid false start, configure output as high */
   GPIO_PinModeSet(LEUART_TXPORT, LEUART_TXPIN, gpioModePushPull, 1);
-  GPIO_PinModeSet(LEUART_RXPORT, LEUART_RXPIN, gpioModeInput, 1);
-
+  GPIO_PinModeSet(LEUART_RXPORT, LEUART_RXPIN, gpioModeInputPull, 1);
+  
   static LEUART_Init_TypeDef init_leuart = {
     .baudrate   = BAUD_RATE,        /* 9600 bits/s. */
     .databits   = leuartDatabits8,  /* 8 databits. */
@@ -51,12 +54,14 @@ void Setup_LEUART(void)
   /* Select LFXO for LEUARTs (and wait for it to stabilize) */
   CMU_ClockSelectSet(cmuClock_LFB, cmuSelect_LFXO);
   CMU_ClockEnable(cmuClock_LEUART0, true);
+  
+  /* Do not prescale clock */
+  CMU_ClockDivSet(cmuClock_LEUART0, cmuClkDiv_1);
 
   /* Configure LEUART */
   init_leuart.enable = leuartDisable;
 
   /* In order to be cautious, reset the LEUART and start the init. procedures */
-  LEUART_Reset(LEUART0);
   LEUART_Init(LEUART0, &init_leuart);
   
   /* Enable pins at default location */
@@ -65,17 +70,23 @@ void Setup_LEUART(void)
   /* Clear the interrupt flags */
   LEUART0->IFC = 0xFF;
 
-  /* Set RXDMAWU to wake up the DMA controller in EM2 */
+  /* Set RXDMAWU & TXDMAWU to wake up the DMA controller in EM2 */
   LEUART_RxDmaInEM2Enable(LEUART0, true);
+  LEUART_TxDmaInEM2Enable(LEUART0, true);
 
   /* Enable the interrupt flag for the LEUART 
    * - Enable the interrupt on the completion of the TX.
    */
+#ifdef USE_LEUART_DMA
+  /* Don't need to enable LEUART interrupts here! */
+#else
+  /* Enable the LEUART0 interrupts */
   LEUART0->IEN = LEUART_IEN_TXC;
+  NVIC_EnableIRQ(LEUART0_IRQn);
+#endif
 
   /* Finally enable it */
   LEUART_Enable(LEUART0, leuartEnable);
-  NVIC_EnableIRQ(LEUART0_IRQn);
 
   return;
 }
@@ -90,50 +101,62 @@ void Setup_LEUART(void)
  */
 void Setup_LEUART_DMA(void)
 {
+  /* Config the callback routine properties */
+  static DMA_CB_TypeDef dma_cb_config = {
+    .cbFunc = cb_Chnl0_DMA,
+    .userPtr = NULL,
+    .primary = true
+  };
+  
   /* Initializing the DMA */
   static DMA_Init_TypeDef dmaInit = {
     .controlBlock = dmaControlBlock, 
-    .hprot        = 0
+    .hprot        = DMA_CHNL0_LEUART0
   };
 
   /*Setting up DMA channel */
   static DMA_CfgChannel_TypeDef channelCfg = {
-    .cb         = NULL, 
-    .enableInt  = false,  
-    .highPri    = false,
-    .select     = DMAREQ_LEUART0_RXDATAV
+    .cb         = &dma_cb_config, 
+    .select     = DMAREQ_LEUART0_TXEMPTY,
+    .enableInt  = true,  
+    .highPri    = true
   };
 
   /* Setting up channel descriptor */
   static DMA_CfgDescr_TypeDef descrCfg = {
-    .arbRate  = dmaArbitrate1, 
     .dstInc   = dmaDataIncNone,
-    .hprot    = 0,
+    .srcInc   = dmaDataInc1,
     .size     = dmaDataSize1,
-    .srcInc   = dmaDataIncNone
-  };
- 
-  /* Configure loop transfer mode */
-  static DMA_CfgLoop_TypeDef loopCfg = {
-    .enable   = true,  
-    .nMinus1  = 0     /* Single transfer per DMA cycle */
+    .arbRate  = dmaArbitrate1, 
+    .hprot    = 0
   };
 
   /* Call all the initialization functions now */
   DMA_Init(&dmaInit);
-  DMA_CfgChannel(0, &channelCfg);
-  DMA_CfgDescr(0, true, &descrCfg);
-  DMA_CfgLoop(0, &loopCfg);
-
-  /* Activate basic dma cycle using channel0 */
-  DMA_ActivateBasic(0,\
-      true,\
-      false,\
-      (void *)&LEUART0->TXDATA,\
-      (void *)&LEUART0->RXDATA,\
-      0);
+  DMA_CfgChannel(DMA_CHNL0_LEUART0, &channelCfg);
+  DMA_CfgDescr(DMA_CHNL0_LEUART0, true, &descrCfg);
+  
+  DMA_IntClear(DMA_CHNL0_LEUART0);
+  DMA_IntEnable(DMA_CHNL0_LEUART0);
 
   return;
+}
+
+void cb_Chnl0_DMA(unsigned int channel, bool primary, void *user)
+{
+	INT_Disable();
+	
+  /* Clear the Flag */
+	DMA_IntClear(DMA_CHNL0_LEUART0);
+
+	/* Clear the TX Buffer */
+	LEUART0->CMD = LEUART_CMD_CLEARTX;
+	LEUART0->CMD = LEUART_CMD_CLEARRX;
+
+	/* Disable the DMA controller */
+	DMA->CONFIG &= ~DMA_CONFIG_EN;
+
+	INT_Enable();
 }
 
 /* Function:void LEUART0_IRQHandler(void)
@@ -152,6 +175,7 @@ void LEUART0_IRQHandler(void)
   /* Clear the TXC flag */
 	LEUART0->IFC = LEUART_IFC_TXC;
 
+  /* Wait for the data to be received on the RX buffer */
 	delay(100);
 	rx_test_buffer[aes_data_counter] = LEUART0->RXDATA;
 	aes_data_counter++;

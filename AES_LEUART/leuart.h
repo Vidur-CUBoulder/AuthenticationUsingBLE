@@ -29,4 +29,6 @@ void Setup_LEUART(void);
 
 void Setup_LEUART_DMA(void);
 
+void cb_Chnl0_DMA(unsigned int channel, bool primary, void *user);
+
 #endif /* SRC_LEUART_H_ */
