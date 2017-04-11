@@ -117,7 +117,7 @@ void Setup_LEUART_DMA(void)
   /*Setting up DMA channel */
   static DMA_CfgChannel_TypeDef channelCfg = {
     .cb         = &dma_cb_config, 
-    .select     = DMAREQ_LEUART0_TXEMPTY,
+    .select     = DMAREQ_LEUART0_TXBL,
     .enableInt  = true,  
     .highPri    = true
   };
