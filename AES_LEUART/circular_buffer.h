@@ -27,9 +27,6 @@ typedef struct circular_buffer {
   bool overflow;
 } c_buf;
 
-/* A globally defined buffer */
-//c_buf buffer;
-
 typedef enum debug_circular_buffer {
   NULL_RETURN = 0,
   SUCCESS = 1,
@@ -98,6 +95,18 @@ void Debug_Buffer(c_buf *buffer, uint8_t size);
  */
 debug_buf free_buffer(void *buffer);
 
+/* Function: DMA_override_head(c_buf *buffer, uint8_t multiplier)
+ * Input Parameters:
+ *      - void *buffer: a pointer to the start of the circular buffer
+ *      - uint8_t multiplier: positions by which to move the head
+ * Return Values:
+ *      - debug_buf: debug handle to debug and interpret the func. 
+ * Description:
+ *      - Use this function to update the head pointer of the 
+ *      circular buffer in special cases like DMA data transfers.
+ *      Use this function with caution, may cause logical errors if
+ *      used incorrectly or in the wrong context.
+ */
 debug_buf DMA_override_head(c_buf *buffer, uint8_t multiplier);
 
 
