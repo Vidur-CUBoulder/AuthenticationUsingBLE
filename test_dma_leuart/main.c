@@ -1,7 +1,7 @@
 /**************************************************************************//**
- * @file main.c
- * @brief LEUART/DMA in EM2 example for EFM32LG_DK3750 starter kit
- * @version 5.0.0
+ * @file
+ * @brief LEUART/LDMA in EM2 example for SLSTK3401A starter kit
+ * @version 5.1.2
  ******************************************************************************
  * @section License
  * <b>Copyright 2016 Silicon Labs, Inc. http://www.silabs.com</b>
@@ -12,28 +12,39 @@
  * any purpose, you must agree to the terms of that agreement.
  *
  ******************************************************************************/
+
 #include "em_device.h"
 #include "em_chip.h"
 #include "em_cmu.h"
 #include "em_emu.h"
-#include "em_leuart.h"
-#include "em_dma.h"
-#include "dmactrl.h"
 #include "em_int.h"
+#include "em_leuart.h"
+#include "em_ldma.h"
+#include "bspconfig.h"
+#include "retargetserial.h"
 
-void cb_Chnl0_DMA(unsigned int channel, bool primary, void *user);
+#include "em_crypto.h"
 
-/** LEUART Rx/Tx Port/Pin Location */
-#define LEUART_LOCATION    0
-#define LEUART_TXPORT      gpioPortD            /* LEUART transmission port */
-#define LEUART_TXPIN       4                    /* LEUART transmission pin */
-#define LEUART_RXPORT      gpioPortD            /* LEUART reception port */
-#define LEUART_RXPIN       5                    /* LEUART reception pin */
+#define AES_DATA_SIZE 64
 
-uint8_t Tx_Buffer[] = {0x32, 0x41, 0x13, 0x46, 0x63, 0x9A, 0x43};
-uint8_t Rx_Buffer[10];
-uint8_t count;
+uint8_t Storage_Buffer[AES_DATA_SIZE];
 
+const uint8_t exampleKey[] = { 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6,
+                               0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C};
+
+uint8_t decryptionKey[16];
+
+uint8_t pop_data[64];
+
+const uint8_t initVector[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                               0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
+
+/** LDMA Descriptor initialization */
+static LDMA_Descriptor_t xfer =
+  LDMA_DESCRIPTOR_LINKREL_P2M_BYTE(&LEUART0->RXDATA, /* Peripheral source address */
+                                   &Storage_Buffer,  /* Peripheral destination address */
+                                   AES_DATA_SIZE,    /* Number of bytes */
+                                   0);               /* Link to same descriptor */
 
 /**************************************************************************//**
  * @brief  Setting up LEUART
@@ -42,16 +53,18 @@ void setupLeuart(void)
 {
   /* Enable peripheral clocks */
   CMU_ClockEnable(cmuClock_HFPER, true);
+
   /* Configure GPIO pins */
   CMU_ClockEnable(cmuClock_GPIO, true);
+
   /* To avoid false start, configure output as high */
-  GPIO_PinModeSet(LEUART_TXPORT, LEUART_TXPIN, gpioModePushPull, 1);
-  GPIO_PinModeSet(LEUART_RXPORT, LEUART_RXPIN, gpioModeInputPull, 1);
+  GPIO_PinModeSet(RETARGET_TXPORT, RETARGET_TXPIN, gpioModePushPull, 1);
+  GPIO_PinModeSet(RETARGET_RXPORT, RETARGET_RXPIN, gpioModeInput, 0);
 
   LEUART_Init_TypeDef init = LEUART_INIT_DEFAULT;
-  
+
   /* Enable CORE LE clock in order to access LE modules */
-  CMU_ClockEnable(cmuClock_CORELE, true);  
+  CMU_ClockEnable(cmuClock_CORELE, true);
 
   /* Select LFXO for LEUARTs (and wait for it to stabilize) */
   CMU_ClockSelectSet(cmuClock_LFB, cmuSelect_LFXO);
@@ -64,150 +77,116 @@ void setupLeuart(void)
   init.enable = leuartDisable;
 
   LEUART_Init(LEUART0, &init);
-  
+
   /* Enable pins at default location */
-  LEUART0->ROUTE = LEUART_ROUTE_RXPEN | LEUART_ROUTE_TXPEN | LEUART_LOCATION;
-  
+  LEUART0->ROUTELOC0 = (LEUART0->ROUTELOC0 & ~(_LEUART_ROUTELOC0_TXLOC_MASK
+                                               | _LEUART_ROUTELOC0_RXLOC_MASK))
+                       | (RETARGET_TX_LOCATION << _LEUART_ROUTELOC0_TXLOC_SHIFT)
+                       | (RETARGET_RX_LOCATION << _LEUART_ROUTELOC0_RXLOC_SHIFT);
+
+  LEUART0->ROUTEPEN  = USART_ROUTEPEN_RXPEN | USART_ROUTEPEN_TXPEN;
+
   /* Set RXDMAWU to wake up the DMA controller in EM2 */
-  LEUART_TxDmaInEM2Enable(LEUART0, true);
   LEUART_RxDmaInEM2Enable(LEUART0, true);
-  
+
   /* Finally enable it */
   LEUART_Enable(LEUART0, leuartEnable);
 }
 
-/**************************************************************************//**
- * @brief  Setup DMA
- * 
+/*******************************************************************************//**
+ * @brief  Setting up LDMA
+ *
  * @details
- *   This function initializes DMA controller.
- *   It configures the DMA channel to be used for LEUART0 transmit 
- *   and receive. The primary descriptor for channel0 is configured for 
- *   a single data byte transfer. For continous data reception and transmission 
- *   using LEUART DMA loopmode is enabled for channel0. 
- *   In the end DMA transfer cycle is configured to basicMode where 
- *   the channel source address, destination address, and 
- *   the transfercount per dma cycle have been specified.
- *   
- *****************************************************************************/
-void setupDma(void)
+ *   This function configures LDMA transfer trigger to LEUART0 Rx.
+ *   It also disables LDMA interrupt on transfer complete and makes the
+ *   destination address increment to None. Since the we are using
+ *   LDMA_DESCRIPTOR_LINKREL_P2M_BYTE as the channel descriptor and it enables
+ *   LDMA interrupt and destination increment to a none-zero value
+ *   ldmaCtrlDstIncOne. In the end this function initializes LDMA ch0 using
+ *   channel descriptor(xfer) and the transfer trigger.
+ *********************************************************************************/
+void setupLdma(void)
 {
-  static DMA_CB_TypeDef dma_cb_config = {
-    .cbFunc = cb_Chnl0_DMA,
-    .userPtr = NULL,
-    .primary = true
-  };
+  /* LDMA transfer configuration for LEUART */
+  const LDMA_TransferCfg_t periTransferRx =
+    LDMA_TRANSFER_CFG_PERIPHERAL(ldmaPeripheralSignal_LEUART0_RXDATAV);
 
-  static DMA_Init_TypeDef dmaInit = {
-    
-    /* Initializing the DMA */
-    .hprot        = 0,
-    .controlBlock = dmaControlBlock
-  };
-  
-  /* Setting up channel */
-  static DMA_CfgChannel_TypeDef channelCfg = {
+  xfer.xfer.dstInc  = ldmaCtrlDstIncOne;
 
-    /* Can't use with peripherals */
-    .highPri   = true,
-	/* Interrupt not needed in loop transfer mode */
-    .enableInt = true,
+  /* Set the bit to trigger the DMA Done Interrupt */
+  xfer.xfer.doneIfs = 1;
 
-    /* Configure channel 0 */
-    /*Setting up DMA transfer trigger request*/
-    .select = DMAREQ_LEUART0_TXBL,
-    .cb     = &dma_cb_config
-  };
-  
-  /* Setting up channel descriptor */
-  /* Destination is LEUART_Tx register and doesn't move */
-  static DMA_CfgDescr_TypeDef descrCfg = {
-    .dstInc = dmaDataIncNone,
+  /* LDMA initialization mode definition */
+  LDMA_Init_t init = LDMA_INIT_DEFAULT;
 
-    /* Source is LEUART_RX register and transfers 8 bits each time */
-    .srcInc = dmaDataInc1,
-    .size   = dmaDataSize1,
+  /* Enable the interrupts */
+  LDMA->IEN = 0x01;
+  NVIC_EnableIRQ(LDMA_IRQn);
 
-    /* We have time to arbitrate again for each sample */
-    .arbRate = dmaArbitrate1,
-    .hprot   = 0
-  };
-  
-  static DMA_CfgLoop_TypeDef loopCfg = {
-    /* Configure loop transfer mode */
-    .enable = true,
-    .nMinus1 = 0  /* Single transfer per DMA cycle*/
-  };
-
-  DMA_Init(&dmaInit);
-  DMA_CfgChannel(0, &channelCfg);
-  
-  /* Configure primary descriptor  */
-  DMA_CfgDescr(0, true, &descrCfg);
- 
-  //DMA_CfgLoop(0, &loopCfg);
-  
-  /*Clear and enable the DMA interrupt */
-  DMA_IntClear(0);
-  DMA_IntEnable(0);
-
-  /* Activate basic dma cycle using channel0 */
-  DMA_ActivateBasic(0,
-		    true,
-		    false,
-	        (void *)&LEUART0->TXDATA,
-		    &Tx_Buffer,
-		    1);
+  /* LDMA initialization */
+  LDMA_Init(&init);
+  LDMA_StartTransfer(0, (LDMA_TransferCfg_t *)&periTransferRx, &xfer);
 }
 
-void cb_Chnl0_DMA(unsigned int channel, bool primary, void *user)
+void LDMA_IRQHandler(void)
 {
-	INT_Disable();
-
-	/* Clear the Flag */
-	DMA_IntClear(0);
-
-	/* Store the RX value in a buffer */
-	Rx_Buffer[count] = LEUART0->RXDATA;
-	count++;
-
-	/* Clear the TX Buffer */
-	LEUART0->CMD = LEUART_CMD_CLEARTX;
-	LEUART0->CMD = LEUART_CMD_CLEARRX;
-
-	DMA_ActivateBasic(0,
-			    true,
-			    false,
-		        (void *)&LEUART0->TXDATA,
-			    &Tx_Buffer,
-			    (count+1));
-
-	if(count == 8) {
-		DMA->LOOP0 &= ~DMA_LOOP0_EN;
-	}
-
 	INT_Enable();
 
+	/* Clear the LDMA DONE flag */
+	LDMA->IFC = LDMA_IFC_DONE_DEFAULT;
+
+	/* Decrypt the Data received */
+	CRYPTO_AES_CBC128(CRYPTO,\
+			pop_data,\
+			Storage_Buffer,\
+			64,\
+			decryptionKey,\
+			initVector,\
+			false);
+
+	INT_Disable();
 }
 
+void Setup_CRYPTO(void)
+{
+  /* Switch HFCLK to HFXO and disable HFRCO */
+  CMU_ClockSelectSet(cmuClock_HF, cmuSelect_HFXO);
+  CMU_OscillatorEnable(cmuOsc_HFRCO, false, false);
+
+  /* Enable the clock to the CRYPTO engine */
+  CMU->HFBUSCLKEN0 = CMU_HFBUSCLKEN0_CRYPTO;
+
+  /* Get the decryption key from the original key, needs to be done once for each key */
+  CRYPTO_AES_DecryptKey128(CRYPTO, decryptionKey, exampleKey);
+  
+  return;
+}
 
 /**************************************************************************//**
  * @brief  Main function
  *****************************************************************************/
 int main(void)
 {
+  /* Use default settings for DCDC */
+  EMU_DCDCInit_TypeDef dcdcInit = EMU_DCDCINIT_DEFAULT;
+
   /* Chip errata */
   CHIP_Init();
 
+  /* Init DCDC regulator with kit specific parameters */
+  EMU_DCDCInit(&dcdcInit);
+
+  Setup_CRYPTO();
+
   /* Initialize LEUART */
   setupLeuart();
-  
-  /* Setup DMA */
-  setupDma();
-  
+
+  /* Configure LDMA */
+  setupLdma();
+
   while (1)
   {
     /* On every wakeup enter EM2 again */
-    EMU_EnterEM2(true);
+    //EMU_EnterEM2(true);
   }
 }
