@@ -38,7 +38,7 @@ extern void CRYOTIMER_enter_DefaultMode_from_RESET(void);
 extern void PCNT0_enter_DefaultMode_from_RESET(void);
 extern void PRS_enter_DefaultMode_from_RESET(void);
 extern void PORTIO_enter_DefaultMode_from_RESET(void);
-//extern void CRYPTO_enter_DefaultMode_from_RESET(void);
+extern void CRYPTO_enter_DefaultMode_from_RESET(void);
 // [Config(Per-Module Mode)Transition Prototypes]$
 
 // $[User-defined pin name abstraction]
