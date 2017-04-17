@@ -34,17 +34,22 @@
 #include "aes.h"
 
 #define AES_DATA_SIZE 64
+#define AES_BLOCK_SZ 16
 
 uint8_t Storage_Buffer[AES_DATA_SIZE];
 
+#if 1
 const uint8_t exampleKey[] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+
+uint8_t example_input_data[AES_BLOCK_SZ] = {0x03,0x36,0x76,0x3e,0x96,0x6d,0x92,0x59,0x5a,0x56,0x7c,0xc9,0xce,0x53,0x7f,0x5e};
 
 uint8_t decryptionKey[16];
 
 uint8_t pop_data[64];
 
-//const uint8_t initVector[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-//                               0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
+const uint8_t initVector[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                               0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
+#endif
 
 /** LDMA Descriptor initialization */
 static LDMA_Descriptor_t xfer =
@@ -55,7 +60,6 @@ static LDMA_Descriptor_t xfer =
 
 /* Global aes data structure */
 mbedtls_aes_context aes_ctx;
-
 
 // [Library includes]$
 
@@ -74,7 +78,7 @@ extern void enter_DefaultMode_from_RESET(void) {
 	LDMA_enter_DefaultMode_from_RESET();
 	PRS_enter_DefaultMode_from_RESET();
 	PORTIO_enter_DefaultMode_from_RESET();
-	//CRYPTO_enter_DefaultMode_from_RESET();
+	//CRYPTO_enter_DefaultMode();
 	// [Config Calls]$
 
 }
@@ -82,8 +86,8 @@ extern void enter_DefaultMode_from_RESET(void) {
 //================================================================================
 // EMU_enter_DefaultMode_from_RESET
 //================================================================================
-#if 1
-extern void CRYPTO_enter_DefaultMode_from_RESET(void) {
+
+extern void Setup_CRYPTO(void) {
 
 	uint8_t ret;
 
@@ -106,7 +110,6 @@ extern void CRYPTO_enter_DefaultMode_from_RESET(void) {
 
 	return;
 }
-#endif
 
 extern void EMU_enter_DefaultMode_from_RESET(void) {
 
@@ -405,6 +408,9 @@ extern void LEUART0_enter_DefaultMode_from_RESET(void) {
 
 	  /* Finally enable it */
 	  LEUART_Enable(LEUART0, leuartEnable);
+
+	  CRYPTO_enter_DefaultMode();
+
 	// [LEUART0 initialization]$
 
 }
@@ -597,5 +603,25 @@ extern void PORTIO_enter_DefaultMode_from_RESET(void) {
 	// $[Port F Configuration]
 	// [Port F Configuration]$
 
+}
+
+
+void LEUART_IRQHandler()
+{
+	__enable_irq();
+
+	uint8_t ret = 0;
+
+#if 1
+	ret =  mbedtls_aes_crypt_cbc(&aes_ctx,\
+			MBEDTLS_AES_DECRYPT,\
+			16,\
+			initVector,\
+			example_input_data,\
+			pop_data\
+			);
+#endif
+
+	__disable_irq();
 }
 

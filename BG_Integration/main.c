@@ -44,6 +44,7 @@
 #include "mx25flash_spi.h"
 #endif /* FEATURE_SPI_FLASH */
 
+#define MBEDTLS_AES_DECRYPT     0
 
 /***********************************************************************************************//**
  * @addtogroup Application
