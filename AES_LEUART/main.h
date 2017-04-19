@@ -9,7 +9,6 @@
 #include "leuart.h"
 #include "em_gpio.h"
 #include "aes_cbc_128_dma.h"
-#include "circular_buffer.h"
 
 #include "em_dma.h"
 #include "dmactrl.h"

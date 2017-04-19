@@ -24,8 +24,9 @@ uint8_t ret_data;
 uint8_t rx_test_buffer[AES_DATA_SIZE];
 uint8_t count = 0;
 
+#ifdef USE_LEUART_IRQ
 extern uint8_t aes_data_counter;
-extern c_buf aes_buffer;
+#endif
 
 /* Function: void Setup_LEUART(void)
  * Parameters:
@@ -168,6 +169,7 @@ void cb_Chnl0_DMA(unsigned int channel, bool primary, void *user)
  *    - Interrupt handler for LEUART0. This will be triggered on ever
  *      successful TXC event.
  */
+#ifdef USE_LEUART_IRQ
 void LEUART0_IRQHandler(void)
 {
   INT_Disable();
@@ -193,3 +195,4 @@ void LEUART0_IRQHandler(void)
 
   return;
 }
+#endif

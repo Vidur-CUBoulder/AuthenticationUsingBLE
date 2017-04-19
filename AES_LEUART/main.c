@@ -1,5 +1,7 @@
 #include "main.h"
 
+#include "em_crypto.h"
+
 /******* Sleep Modes ********/
 #define SEL_SLEEP_MODE sleepEM2
 
@@ -27,7 +29,7 @@ uint8_t aes_data_counter = 0;
 uint8_t ret_data;
 
 /* Store the AES data in a circular buffer */
-c_buf aes_buffer;
+uint8_t aes_buffer[AES_DATA_SIZE];
 
 /***********************************************************/
 
@@ -73,16 +75,10 @@ void GPIO_ODD_IRQHandler(void)
 	/* Clear the interrupt flag */
 	AES->IFC = AES_IFC_DONE;
 
-	/* Free any previously allocated circular buffer */
-	free_buffer(aes_buffer.buf_start);
-
-	/* Allocate a new buffer to store data in */
-	Alloc_Buffer(&aes_buffer, AES_DATA_SIZE);
-
 	/* Trigger the AES interrupt */
 	AesCBC128DmaEncrypt(exampleKey,\
 			exampleData,\
-			aes_buffer.buf_start,\
+			aes_buffer,\
 			SIZEOF_DMA_BLOCK,\
 			initVector);
 
@@ -91,12 +87,6 @@ void GPIO_ODD_IRQHandler(void)
 	 * Don't dare touch it!!
 	 */
 	delay(100);
-
-	/* Move the head pointer to the correct location as a result
-	 * of the DMA transfers. This is an override and not an
-	 * actual circular buffer addition.
-	 */
-	DMA_override_head(&aes_buffer, AES_DATA_SIZE);
 
 	INT_Enable();
 
@@ -135,31 +125,21 @@ void AES_IRQHandler(void)
 	Setup_LEUART_DMA();
 #endif
 
-	/* Add the encrypted data to the aes_buffer */
-	//add_to_buffer(&aes_buffer, &dataBuffer, AES_DATA_SIZE);
-	remove_from_buffer(&aes_buffer, &pop_data, AES_DATA_SIZE);
-
 	/* Clear the interrupt flag */
 	AES->IFC = AES_IFC_DONE;
 
 	/* Reset the aes counter */
 	aes_byte_counter = 0;
 
-/* XXX: The below is what should work!! */
-  /*DMA_ActivateBasic(0,
-      true,
-      false,
-      (void *)&LEUART0->TXDATA,
-      (void *)&aes_buffer.buf_start,
-      AES_DATA_SIZE);*/
-
 #ifdef USE_LEUART_DMA
- DMA_ActivateBasic(0,
+/* XXX: The below is what should work!! */
+  DMA_ActivateBasic(0,
       true,
       false,
       (void *)&LEUART0->TXDATA,
-      (void *)&pop_data,
-	  AES_DATA_SIZE);
+      (void *)&aes_buffer,
+      (AES_DATA_SIZE-1));
+
 #else
 	remove_from_buffer(&aes_buffer, &ret_data, sizeof(uint8_t));
 	LEUART0->TXDATA = ret_data;
@@ -167,7 +147,6 @@ void AES_IRQHandler(void)
 
 	INT_Enable();
 }
-
 
 void Config_AES(void)
 {

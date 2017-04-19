@@ -16,7 +16,6 @@
 #include "em_dma.h"
 #include "dmactrl.h"
 #include "em_int.h"
-#include "circular_buffer.h"
 
 /** LEUART Rx/Tx Port/Pin Location */
 #define LEUART_LOCATION    0
