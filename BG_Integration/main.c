@@ -50,14 +50,15 @@
 #include "em_leuart.h"
 #include "retargetserial.h"
 
-//#include "sl_crypto.h"
-//#include "cryptodrv.h"
-
-//#include "mbedtls/aes.h"
-//#include "mbedtls/entropy.h"
 #include "em_crypto.h"
 
-#include "trial_header.h"
+#include <stdio.h>
+#include "display.h"
+#include "displayls013b7dh03.h"
+#include "retargettextdisplay.h"
+#include "textdisplay.h"
+
+#include <aes_data_header.h>
 
 
 /***********************************************************************************************//**
@@ -139,8 +140,8 @@ void Setup_CRYPTO(void) {
 }
 #endif
 
-#if 1
-void Setup_LEUART0(void) {
+void Setup_LEUART0(void) 
+{
 
 	// $[LEUART0 initialization]
 	 /* Enable peripheral clocks */
@@ -183,10 +184,9 @@ void Setup_LEUART0(void) {
     // [LEUART0 initialization]$
 
 }
-#endif
 
-#if 1
-void Setup_LDMA(void) {
+void Setup_LDMA(void) 
+{
 
 	/* LDMA transfer configuration for LEUART */
 		const LDMA_TransferCfg_t periTransferRx =
@@ -209,7 +209,31 @@ void Setup_LDMA(void) {
 		LDMA_StartTransfer(0, (LDMA_TransferCfg_t *)&periTransferRx, &xfer);
 
 }
-#endif
+
+uint32_t Random_Return(void)
+{
+	/* Substitute for the random number generator that does not
+	 * exist in this version of the MCU! :(
+	 * Am not even sure if this is random at all!
+	 */
+	return (uint32_t)(__builtin_return_address(0));
+}
+
+void Init_Sharp_LCD(void)
+{
+	/* Initialize the display module. */
+	DISPLAY_Init();
+
+	/* Retarget stdio to a text display. */
+	if (RETARGET_TextDisplayInit() != TEXTDISPLAY_EMSTATUS_OK)
+	{
+		while (1) ;
+	}
+
+	return;
+}
+
+
 /**
  * @brief  Main function
  */
@@ -227,7 +251,7 @@ int main(void)
   /* Initialize peripherals */
   enter_DefaultMode_from_RESET();
 
-  //Setup_CRYPTO();
+  Init_Sharp_LCD();
   Setup_LEUART0();
   Setup_LDMA();
 

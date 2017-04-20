@@ -27,14 +27,6 @@
 #include "em_rtcc.h"
 // [Library includes]$
 
-//#include "em_gpio.h"
-//#include "em_ldma.h"
-//#include "em_leuart.h"
-//#include "retargetserial.h"
-//#include "em_crypto.h"
-//
-//#include "trial_header.h"
-
 
 //==============================================================================
 // enter_DefaultMode_from_RESET
@@ -51,21 +43,9 @@ extern void enter_DefaultMode_from_RESET(void) {
 	LDMA_enter_DefaultMode_from_RESET();
 	PRS_enter_DefaultMode_from_RESET();
 	PORTIO_enter_DefaultMode_from_RESET();
-	//Setup_CRYPTO();
 	// [Config Calls]$
 
 }
-
-//extern void Setup_CRYPTO(void)
-//{
-//	/* Enable the clock to the CRYPTO engine */
-//	//CMU->HFBUSCLKEN0 = CMU_HFBUSCLKEN0_CRYPTO;
-//
-//	/* Get the decryption key from the original key, needs to be done once for each key */
-//	CRYPTO_AES_DecryptKey128(CRYPTO, decryptionKey, exampleKey);
-//
-//	return;
-//}
 
 //================================================================================
 // EMU_enter_DefaultMode_from_RESET
