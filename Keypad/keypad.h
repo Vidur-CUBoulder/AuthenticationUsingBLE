@@ -49,7 +49,9 @@
 #include "em_lcd.h"
 #include "segmentlcd.h"
 #include "em_emu.h"
-
+#include "letimer.h"
+#include "leuart.h"
+#include "string.h"
 
 /*****************************************************
             * Define Statements *
@@ -86,7 +88,7 @@
  *****************************************************/
 typedef enum keypad_t
 {
-    clear = 0,
+    key0 = 0,
     key1 = 1,
     key2,
     key3,
@@ -96,7 +98,7 @@ typedef enum keypad_t
     key7,
     key8,
     key9,
-    key0,
+    extra,
     keyOn,
     keyEnter
 }keypad;
@@ -105,19 +107,23 @@ typedef enum keypad_t
 unsigned int key_pressed;                       //Variable to store the key pressed
 bool oddstate;                                  //To debug odd irq handler
 bool evenstate;                                 //To debug even irq handler
+char keypad_display[6];
 
 
-/************************************************************************
-* Setup and initialize all buttons of the keypad
-*
-* Input variables: None
-*
-* Global variables: None
-*
-* Returned variables: None
-**************************************************************************/
+/* Setup and initialize all buttons of the keypad*/
 void keypad_setup(void);
 
+/*Enable all buttons of the keypad*/
+void keypad_enable(void);
+
+/*Disable all keys of the keypad*/
+void keypad_disable(void);
+
+/*Function to display scrolling text on the display*/
+void LCD_Scroll(char *text);
+
+/*Function to display Pin*/
+void PIN_Display(bool showlast);
 
 #endif /* KEYPAD_H */
 
