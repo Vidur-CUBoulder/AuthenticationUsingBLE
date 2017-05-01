@@ -8,23 +8,6 @@
 #include "sleep_modes.h"
 #include "em_timer.h"
 
-#define DATA_BUFFER_SIZE 5
-#define BAUD_RATE 9600
-#define SEL_SLEEP_MODE    sleepEM2
-#define LEUART_SLEEP_MODE sleepEM2
-
-#define USE_LEUART_DMA
-
-#define DMA_CHNL0_LEUART0 5
-
-#define delay(X) for(int i=0; i<X; i++)
-
-//static uint8_t ret_data;
-static uint8_t rx_data_count;
-static uint8_t rx_test_buffer[16];
-static uint8_t Storage_Buffer_RX[16];
-//static uint8_t count = 0;
-
 /* Function: void Setup_LEUART(void)
  * Parameters:
  *      void
@@ -164,9 +147,6 @@ void Setup_Rx_from_BG(void)
 
 }
 
-uint8_t test_check_pin_data[6] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
-uint8_t pin_trials;
-
 void LEUART0_IRQHandler(void)
 {
 	__disable_irq();
@@ -276,6 +256,7 @@ void create_packet(msg_to_BG packet)
 
 		case check_pin: /* Check if the pin entered by the user is correct or not! */
 
+            /* Reconfig before sending another packet */
 						LEUART_Reset(LEUART0);
 						Setup_LEUART();
 						Setup_LEUART_DMA();
@@ -306,41 +287,3 @@ void create_packet(msg_to_BG packet)
 	}
 	return;
 }
-
-
-/* Function:void LEUART0_IRQHandler(void)
- * Parameters:
- *      void
- * Return:
- *      void
- * Description:
- *    - Interrupt handler for LEUART0. This will be triggered on ever
- *      successful TXC event.
- */
-#if 0
-void LEUART0_IRQHandler(void)
-{
-  INT_Disable();
- 	
-  /* Clear the TXC flag */
-	LEUART0->IFC = LEUART_IFC_TXC;
-
-  /* Wait for the data to be received on the RX buffer */
-	delay(100);
-	rx_test_buffer[aes_data_counter] = LEUART0->RXDATA;
-	aes_data_counter++;
-
-	if(aes_data_counter != AES_DATA_SIZE) {
-		/* Continue to push data on the tx bus */
-		remove_from_buffer(&aes_buffer, &ret_data, sizeof(uint8_t));
-		LEUART0->TXDATA = ret_data;
-	} else {
-		/* Reset the aes_byte counter*/
-		aes_data_counter = 0;
-	}
-
-  INT_Enable();
-
-  return;
-}
-#endif

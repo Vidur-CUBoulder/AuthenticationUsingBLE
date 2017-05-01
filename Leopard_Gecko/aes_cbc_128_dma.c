@@ -551,5 +551,3 @@ void AES_IRQHandler(void)
 
 	__enable_irq();
 }
-
-

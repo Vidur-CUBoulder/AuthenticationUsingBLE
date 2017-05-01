@@ -30,6 +30,18 @@
 
 #define SIZEOF_DMA_BLOCK (sizeof(dataBuffer) / (sizeof(dataBuffer[0]) * 16))
 
+
+#define DATA_BUFFER_SIZE 5
+#define BAUD_RATE 9600
+#define SEL_SLEEP_MODE    sleepEM2
+#define LEUART_SLEEP_MODE sleepEM2
+
+#define USE_LEUART_DMA
+
+#define DMA_CHNL0_LEUART0 5
+
+#define delay(X) for(int i=0; i<X; i++)
+
 /* enum and structure declarations */
 typedef struct {
 	enum {
@@ -62,10 +74,15 @@ typedef struct{
 msg_from_BG packet_from_BG;
 msg_to_BG packet_to_BG;
 
+static uint8_t rx_data_count;
+static uint8_t rx_test_buffer[16];
+static uint8_t Storage_Buffer_RX[16];
 
 static uint8_t final_message[] = { 0x76, 0x49, 0xAB, 0xAC, 0x81, 0x19, 0xB2, 0x46,
         					0xCE, 0xE9, 0x8E, 0x9B, 0x12, 0xE9, 0x19, 0x7D};
 
+static uint8_t test_check_pin_data[6] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06};
+static uint8_t pin_trials;
 
 /* 64B of exampleData */
 extern uint8_t exampleData[16];
