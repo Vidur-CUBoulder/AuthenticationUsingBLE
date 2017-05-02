@@ -147,7 +147,7 @@ typedef struct{
 		discard_pin,
 		timeout_ACK,
 		correct_pin_entered_ACK,
-		incorrect_pin_entered_ACK
+		incorrect_pin_entered_ACK,
 	}command;
 	uint8_t data[6];
 	uint8_t data_length;
@@ -303,13 +303,6 @@ void LEUART0_IRQHandler(void)
 			CRYPTO->IFC = 0xFF;
 			NVIC_ClearPendingIRQ(CRYPTO_IRQn);
 
-			DISPLAY_Init();
-			printf("\f");
-			for(x=0; x<16;x++)
-				printf("%x ",*(rx_test_buffer+x));
-			printf("\n\n");
-			for(x=0; x<16;x++)
-				printf("%x ",*(Storage_Buffer+x));
 			rx_data_count = 0;
 
 
@@ -343,6 +336,8 @@ void LEUART0_IRQHandler(void)
 				{
 					ack_nack_packet.command = correct_pin_entered;
 					create_packet_to_LG(ack_nack_packet);
+					memset(ptr_pinvalue,0,6);
+					gecko_cmd_gatt_server_write_attribute_value(gattdb_pin_value,0,6,ptr_pinvalue);
 				}
 				else
 				{
@@ -356,6 +351,14 @@ void LEUART0_IRQHandler(void)
 				__NOP();
 				break;
 
+			case discard_pin:
+				/* Reset the pin value to zero */
+				memset(ptr_pinvalue,0,6);
+				gecko_cmd_gatt_server_write_attribute_value(gattdb_pin_value,0,6,ptr_pinvalue);
+				Display_init();
+				printf("\f");
+				printf("Pin Discarded!\n");
+				break;
 			}
 			/* Send back and ACK */
 		}
@@ -367,6 +370,7 @@ void LEUART0_IRQHandler(void)
 		{
 			tx_data_count = 0;
 			LEUART0->IEN = 0;
+			LEUART0->CMD = LEUART_CMD_TXDIS;
 			Setup_LEUART_Rx();
 		}
 	}
@@ -431,7 +435,7 @@ int main(void)
     	/* Set advertising parameters. 100ms advertisement interval. All channels used.
     	 * The first two parameters are minimum and maximum advertising interval, both in
     	 * units of (milliseconds * 1.6). The third parameter '7' sets advertising on all channels. */
-    	gecko_cmd_le_gap_set_adv_parameters(160,160,7);
+    	gecko_cmd_le_gap_set_adv_parameters(800,800,7);
     	/* Start general advertising and enable connections. */
     	gecko_cmd_le_gap_set_mode(le_gap_general_discoverable, le_gap_undirected_connectable);
 
@@ -454,6 +458,9 @@ int main(void)
 
     	  ack_nack_packet.command = timeout;
     	  create_packet_to_LG(ack_nack_packet);
+    	  memset(ptr_pinvalue,0,6);																//Discard the existing pin
+    	  gecko_cmd_gatt_server_write_attribute_value(gattdb_pin_value,0,6,ptr_pinvalue);		//Update value on the server
+    	  gecko_cmd_hardware_set_soft_timer(0, 0, 0);											//Turn off                                                                                                                                                                                                        the soft timer
 
         break;
 
