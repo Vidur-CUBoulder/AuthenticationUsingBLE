@@ -508,6 +508,10 @@ void Encrypt_Data(uint8_t *input_data,\
 	/* Clear the interrupt flag */
 	AES->IFC = AES_IFC_DONE;
 
+	CMU_ClockEnable(cmuClock_AES, true);
+	ENABLE_AES_INTERRUPT;
+	//Config_AES();
+
 	/* Trigger the AES interrupt */
 	AesCBC128DmaEncrypt(exampleKey,\
 			input_data,\
@@ -527,17 +531,20 @@ void AES_IRQHandler(void)
 {
 	__disable_irq();
 
+	/* Clear the interrupt flag */
+	AES->IFC = AES_IFC_DONE;
+
 	/* Reset the DMA controller completely */
 	DMA_Reset();
 
 	/* Do the DMA config here! */
-#ifdef USE_LEUART_DMA
-	/* Do the DMA LEUART configuration */
-	Setup_LEUART_DMA();
-#endif
 
-	/* Clear the interrupt flag */
-	AES->IFC = AES_IFC_DONE;
+	/* Do the DMA LEUART configuration */
+	Setup_LEUART();
+	Setup_LEUART_DMA();
+	//DMA->IFS = DMA_IFS_CH0DONE | DMA_IFS_CH1DONE | DMA_IFS_CH2DONE;
+
+	//LEUART0->TXDATA = 0x44;
 
 	DMA_ActivateBasic(5,
 			true,

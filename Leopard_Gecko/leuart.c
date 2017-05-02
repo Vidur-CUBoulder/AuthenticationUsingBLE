@@ -16,6 +16,13 @@
  * Description:
  *    - Do the initial setup for the LEUART
  */
+
+
+extern uint8_t keypad_buffer_counter;
+extern char keypad_input_buffer[6];
+
+
+
 void Setup_LEUART(void)
 {
 
@@ -98,7 +105,7 @@ void Setup_LEUART_DMA(void)
   /*Setting up DMA channel */
   static DMA_CfgChannel_TypeDef channelCfg = {
     .cb         = &dma_cb_config, 
-    .select     = DMAREQ_LEUART0_TXBL,
+    .select     = DMAREQ_LEUART0_TXEMPTY,
     .enableInt  = true,  
     .highPri    = true
   };
@@ -163,7 +170,7 @@ void LEUART0_IRQHandler(void)
 		NVIC_DisableIRQ(AES_IRQn);
 
 		/* Decrypt the data now! */
-		AesCBC128DmaDecrypt(decryptionKey, Storage_Buffer_RX, rx_test_buffer, SIZEOF_DMA_BLOCK, initVector);
+		AesCBC128DmaDecrypt(/*decryptionKey*/ptr_decrypt, Storage_Buffer_RX, rx_test_buffer, SIZEOF_DMA_BLOCK, initVector);
 		while((AES->STATUS & AES_STATUS_RUNNING));
 		delay(200);
 		DMA_Reset();
@@ -174,18 +181,12 @@ void LEUART0_IRQHandler(void)
 		switch(rx_test_buffer[0])
 		{
 		case set_pin_rcvd_ACK:
-			/* Print ACK on the LCD */
-			//SegmentLCD_Write("ACK!");
 			//Do nothing, wait for pin input
-			packet_to_BG.command = check_pin;
-			packet_to_BG.data_length = 6;
-			packet_to_BG.data = &test_check_pin_data[0];
-			create_packet(packet_to_BG);
 			break;
 
 		case check_pin_ACK:
 			//Do nothing
-			SegmentLCD_Write("pin ACK'd");
+			//SegmentLCD_Write("pin ACK'd");
 			break;
 
 		case discard_pin_ACK:
@@ -198,20 +199,48 @@ void LEUART0_IRQHandler(void)
 			packet_to_BG.command = timeout;
 			packet_to_BG.data_length = 0;
 			create_packet(packet_to_BG);
-			//Display timeout for 2 seconds
-			//EMU_EnterEM4();
+			SegmentLCD_Write("TIMEOUT");
+			LETIMER_Delay(1000);
+			EMU_EnterEM4();
 			break;
 
 		case correct_pin_entered:
+			memcpy(packet_to_BG.data,&final_message[0],6);
+			packet_to_BG.command = correct_pin_entered_ACK;
+			packet_to_BG.data_length = 0;
+			create_packet(packet_to_BG);
 			SegmentLCD_Write("CORRECT");
+			LETIMER_Delay(1000);
+			SegmentLCD_Write("Sleep");
+			LETIMER_Delay(400);
+			EMU_EnterEM4();
 			break;
 
 		case incorrect_pin_entered:
-			if(++pin_trials == 3)
+			memcpy(packet_to_BG.data,&final_message[0],6);
+			if(++pin_trials < 3)
 			{
-			//send incorrect pin ACK
-			//Display Wrong for 2 seconds
-			//EMU_EnterEM4();
+				SegmentLCD_Write("RETRY");
+				LETIMER_Delay(1000);
+				memset(keypad_input_buffer, 0, 6);      //Reset the buffer and counter
+				keypad_buffer_counter = 0;
+				keypad_enable();
+				packet_to_BG.command = incorrect_pin_entered_ACK;
+				packet_to_BG.data_length = 0;
+				create_packet(packet_to_BG);
+				SegmentLCD_Write("       ");
+			}
+			else
+			{
+
+				packet_to_BG.command = discard_pin;
+				packet_to_BG.data_length = 0;
+				create_packet(packet_to_BG);
+				LCD_Scroll("INCORRECT ");
+				LETIMER_Delay(500);
+				SegmentLCD_Write("Sleep");
+				LETIMER_Delay(400);
+				EMU_EnterEM4();
 			}
 			break;
 
@@ -240,6 +269,8 @@ void create_packet(msg_to_BG packet)
 		/* Drop/disregard the packet */
 		return;
 	}
+
+	Setup_LEUART();
 
 	switch(packet.command)
 	{
@@ -273,6 +304,11 @@ void create_packet(msg_to_BG packet)
 						break;
 
 		case timeout: /* Send the timeout ack! */
+						LEUART_Reset(LEUART0);
+						Setup_LEUART();
+						Setup_LEUART_DMA();
+						ENABLE_AES_INTERRUPT;
+
 						final_message[0] = packet.command;
 						if(packet.data_length != 0) {
 							for(int i = 1; i<=packet.data_length; i++) {
