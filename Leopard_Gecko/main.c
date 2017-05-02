@@ -35,31 +35,70 @@ void Central_Clock_Setup(CMU_Osc_TypeDef osc_clk_type)
 
 int main(void)
 {
-  /* Chip errata */
-  CHIP_Init();
+	/* Chip errata */
+	CHIP_Init();
 
-  /* Initialize the LCD */
-  SegmentLCD_Init(false);
+	ptr_decrypt = &decryptionKey[0];
 
-  /* Do the clock config. now */
-  Central_Clock_Setup(cmuSelect_LFXO);
+	/* Initialize the LCD */
+	SegmentLCD_Init(false);
+#if 1
+	SegmentLCD_ARing(0, true);
+	SegmentLCD_ARing(1, true);
+	LETIMER_Setup();                //LETMIER0 setup, 1 sec delay to stabilize oscillator
 
-  /* Setup the LEUART */
-  Setup_LEUART();
+	SegmentLCD_ARing(2, true);
+	SegmentLCD_ARing(3, true);
+	LETIMER_Delay(100);
 
-  /* Configure the AES engine */
-  Config_AES();
+	/* Setup the LEUART */
+	SegmentLCD_ARing(4, true);
+	SegmentLCD_ARing(5, true);
+	LETIMER_Delay(100);
+	Setup_LEUART();
 
-  /* Select the sleep mode that you want to enter */
-  blockSleepMode(SEL_SLEEP_MODE);
-  
-  /* Only send the command to gen. a new pin */
-  packet_to_BG.command = set_new_pin;
-  packet_to_BG.data_length = 0;
-  create_packet(packet_to_BG);
+	/* Configure the AES engine */
+	SegmentLCD_ARing(6, true);
+	SegmentLCD_ARing(7, true);
+	LETIMER_Delay(100);
+	//CMU_ClockEnable(cmuClock_AES, true);
+	//Config_AES();
 
-  /* Infinite loop */
-  while (1) {
-	  sleep();
-  }
+
+	/* Setups done. Disable the ring */
+	SegmentLCD_ARing(0, false);
+	SegmentLCD_ARing(1, false);
+	SegmentLCD_ARing(2, false);
+	SegmentLCD_ARing(3, false);
+	SegmentLCD_ARing(4, false);
+	SegmentLCD_ARing(5, false);
+	SegmentLCD_ARing(6, false);
+	SegmentLCD_ARing(7, false);
+
+
+	SegmentLCD_Symbol(LCD_SYMBOL_GECKO, true);
+	LETIMER_Delay(100);
+	SegmentLCD_Write("Hello");
+	LETIMER_Delay(500);
+	/* Setup and initialize keypad functionality, execute this last*/
+#endif
+
+	Central_Clock_Setup(cmuOsc_LFXO);
+	AES_DecryptKey128(ptr_decrypt, exampleKey);
+
+	/* Only send the command to gen. a new pin */
+	packet_to_BG.command = set_new_pin;
+	packet_to_BG.data_length = 0;
+	create_packet(packet_to_BG);
+
+	/* Select the sleep mode that you want to enter */
+	blockSleepMode(SEL_SLEEP_MODE);
+
+	keypad_setup();
+
+	/* Infinite loop */
+	while (1) {
+
+		sleep();
+	}
 }

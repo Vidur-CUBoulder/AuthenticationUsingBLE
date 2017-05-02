@@ -20,6 +20,9 @@
 
 #include "segmentlcd.h"
 #include "em_lcd.h"
+#include "string.h"
+#include "letimer.h"
+
 
 /** LEUART Rx/Tx Port/Pin Location */
 #define LEUART_LOCATION    0
@@ -88,7 +91,6 @@ static uint8_t pin_trials;
 extern uint8_t exampleData[16];
 uint8_t aes_buffer[16];
 
-extern uint8_t decryptionKey[16];
 extern const uint8_t initVector[16];
 
 void Setup_LEUART(void);

@@ -69,7 +69,9 @@ bool AesFinished(void);
 
 void Config_AES(void);
 
-extern uint8_t decryptionKey[16];
+
+uint8_t decryptionKey[16];
+uint8_t *ptr_decrypt;
 
 extern const uint8_t exampleKey[16];
 
