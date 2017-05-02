@@ -1,0 +1,13 @@
+// Copyright 2017 Silicon Laboratories, Inc.
+//
+//
+
+Executing: bgbuild.exe
+Output:
+ALL OK
+
+Error:
+Unknown option 'n'.
+WARNING: 979dd4b369224d12a69b5e9f3a3db6ff length attribute is 13 but actual value length is 11. 13 will be used.
+
+
